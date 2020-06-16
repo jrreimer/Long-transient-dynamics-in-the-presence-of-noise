@@ -1,0 +1,284 @@
+---
+title: "Long transient dynamics in the presence of noise - Figure 2"
+author: "Jody R. Reimer"
+date: "`r Sys.Date()`"
+output: 
+pdf_document: default
+---
+
+```{r library, message=F}
+library(tidyverse)
+library(nimble)
+library(ecp)
+library(viridis)
+library(cowplot)
+```
+  
+Define the model parameters. 
+
+```{r}
+
+n.its <- 5000 # number of iterations 
+p <- list(r = .05, K = 2, Q = 5, H = .38, sigma = 0, a=0.023, N = 2.7e3, t.step = 1) # define parameter list
+
+growth <- function(x, p) x * p$r * (1 - x / p$K) # growth terms in model
+consumption <- function(x,p) p$a * x ^ p$Q / (x^p$Q + p$H^p$Q) # consumption terms in model
+```
+
+Define the stochastic model in BUGS notation. 
+
+```{r, message=FALSE}
+
+may  <- nimble::nimbleCode({
+  x[1] <- x0
+  for(t in 1:((1/t.step)*N-1)){
+    # calculate determinstic mean at next time step
+    mu[t] <- x[t] + t.step*(x[t] * r * (1 - x[t] / K)  - a * x[t] ^ Q / (x[t] ^ Q + H ^ Q))
+    # now add noise to that mean 
+    y[t+1] ~ dnorm(mu[t], sd = sigma*mu[t]*sqrt(t.step)) 
+    # note: since variance scales linearly with time, sd scales with the square root of time
+    x[t+1] <- max(y[t+1],0) # truncate values so they don't go below 0
+  }
+})
+model <- nimbleModel(may,constants = p, inits = list(x0 = 0.3)) # build model
+cmodel <- model 
+```
+
+First consider sigma = 0 (i.e., the deterministic core, with no variance).
+
+```{r, message=F}
+simulate(cmodel)
+df <- tibble(t = p$t.step*seq_along(cmodel$x), x.sigma0 = cmodel$x)
+sigma0 = df
+df %>% ggplot(aes(t, x.sigma0)) + geom_line() + theme_classic() + 
+  theme(text = element_text(size = 20)) 
+```
+
+Next, set sigma = 0.005 and simulate n.its replicates, then take the mean. 
+
+```{r, message=F}
+p <- list(r = .05, K = 2, Q = 5, H = .38, sigma = 0.005, a=0.023, N = 2.7e3, t.step = 1)
+model <- nimbleModel(may,constants = p, inits = list(x0 = 0.3))
+cmodel <- model #compileNimble(model)
+df <- map_dfr(1:n.its, 
+  function(i){
+    simulate(cmodel)
+    tibble(t = p$t.step*seq_along(cmodel$x), x = cmodel$x, reps = i)
+   })
+df.reps <- df %>% spread(reps,x)
+sigma0.005 = tibble(t = p$t.step*seq_along(cmodel$x),x.sigma0.005=rowMeans(df.reps[,-1]))
+ggplot() + geom_line(data = df, aes(t,x,group=reps), alpha=.1) +
+  geom_line(data = sigma0.005,aes(t,x.sigma0.005),color="yellow") + theme_classic() + 
+  theme(text = element_text(size = 20)) 
+
+```
+
+Then do the same for sigma = 0.01; simulate n.ites replicates and take the mean 
+
+```{r, message=F}
+p <- list(r = .05, K = 2, Q = 5, H = .38, sigma = 0.01, a=0.023, N = 2.7e3, t.step = 1)
+model <- nimbleModel(may,constants = p, inits = list(x0 = 0.3))
+cmodel <- model #compileNimble(model)
+df <- map_dfr(1:n.its, 
+  function(i){
+    simulate(cmodel)
+    tibble(t = p$t.step*seq_along(cmodel$x), x = cmodel$x, reps = i)
+   })
+df.reps <- df %>% spread(reps,x)
+sigma0.01 = tibble(t = p$t.step*seq_along(cmodel$x),x.sigma0.01=rowMeans(df.reps[,-1]))
+ggplot() + geom_line(data = df, aes(t,x,group=reps), alpha=.1) +
+  geom_line(data = sigma0.01,aes(t,x.sigma0.01),color="yellow",) + theme_classic() + 
+  theme(text = element_text(size = 20)) 
+```
+
+Then for sigma = 0.015; simulate n.ites replicates and take the mean 
+
+```{r, message=F}
+p <- list(r = .05, K = 2, Q = 5, H = .38, sigma = 0.015, a=0.023, N = 2.7e3, t.step = 1)
+model <- nimbleModel(may,constants = p, inits = list(x0 = 0.3))
+cmodel <- model #compileNimble(model)
+df <- map_dfr(1:n.its, 
+  function(i){
+    simulate(cmodel)
+    tibble(t = p$t.step*seq_along(cmodel$x), x = cmodel$x, reps = i)
+   })
+df.reps <- df %>% spread(reps,x)
+sigma0.015 = tibble(t = p$t.step*seq_along(cmodel$x),x.sigma0.015=rowMeans(df.reps[,-1]))
+ggplot() + geom_line(data = df, aes(t,x,group=reps), alpha=.1) +
+  geom_line(data = sigma0.015,aes(t,x.sigma0.015),color="yellow",) + theme_classic() + 
+  theme(text = element_text(size = 20)) 
+```
+
+And finally for sigma = 0.02; simulate n.ites replicates and take the mean 
+
+```{r, message=F}
+p <- list(r = .05, K = 2, Q = 5, H = .38, sigma = 0.02, a=0.023, N = 2.7e3, t.step = 1)
+model <- nimbleModel(may,constants = p, inits = list(x0 = 0.3))
+cmodel <- model #compileNimble(model)
+df <- map_dfr(1:n.its, 
+  function(i){
+    simulate(cmodel)
+    tibble(t = p$t.step*seq_along(cmodel$x), x = cmodel$x, reps = i)
+   })
+df.reps <- df %>% spread(reps,x)
+sigma0.02 = tibble(t = p$t.step*seq_along(cmodel$x),x.sigma0.02=rowMeans(df.reps[,-1]))
+ggplot() + geom_line(data = df, aes(t,x,group=reps), alpha=.1) +
+  geom_line(data = sigma0.02,aes(t,x.sigma0.02),color="yellow",) +
+  theme_classic() + theme(text = element_text(size = 20)) 
+```
+
+Now plot all of the mean trajectories together.
+
+```{r, message=F}
+allsigmas = merge(sigma0, sigma0.005, by="t")
+allsigmas = merge(allsigmas, sigma0.01, by="t")
+allsigmas = merge(allsigmas, sigma0.015, by="t")
+allsigmas = merge(allsigmas, sigma0.02, by="t")
+colnames(allsigmas) = c("t","0","0.005","0.01","0.015","0.02")
+allsigmasMelted <- reshape2::melt(allsigmas, id.var='t')
+colnames(allsigmasMelted) = c("t","sigma","value")
+
+ggplot(allsigmasMelted, aes(t, value)) + geom_line(aes(t, value,col=sigma), size=2) + scale_color_viridis(name = expression(sigma), discrete=TRUE, option = "D") + ylab("x") + theme_classic() + theme(text = element_text(size = 20)) +
+  labs(subtitle = "(a)")  -> p1
+p1 + theme(legend.position = c(0.8,0.3)) +
+  theme(axis.title = element_text(size=25),
+        axis.text = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=25),
+        legend.title.align = 0.5,
+        legend.text.align = 0)
+
+p1 + theme(legend.position = c(0.8,0.3)) +
+  theme(axis.title = element_text(size=25),
+        axis.text = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=25),
+        legend.title.align = 0.5,
+        legend.text.align = 0)-> p1
+```
+
+Now make plot of the potential curve, with three different initial conditions position on the curve in the region of the ghost attractor. 
+
+```{r, message=F}
+
+p <- list(r = .05, K = 2, Q = 5, H = .38, sigma = 0, a=0.023, N = 2.7e3, t.step = 1)
+epsilon = 0.07
+theory <- tibble(x = seq(0,p$K, length.out = 100)) %>%
+  mutate(g = growth(x, p), 
+         c = consumption(x, p)) %>%
+  mutate(potential = - cumsum(g - c)) %>%
+  gather(curve, y, -x, -potential) 
+col3 = viridis(3)
+theory %>%
+  ggplot(aes(x, potential)) + 
+  geom_line(lwd = 2) +
+  annotate("point", x = 0.5, y = -0.11, size=5, shape="circle", color=col3[1]) + 
+  annotate("point", x = 0.5-epsilon, y = -0.107, size=5, shape="circle", color=col3[2]) +
+  annotate("point", x = 0.5+epsilon, y = -0.1107, size=5, shape="circle", color=col3[3]) + 
+  #annotate("text", x = 0.5, y = -0.02, label = "initial \nconditions", size=8) + 
+  annotate("text", x = 0.5, y = -0.08, label = expression(x[0]),size=8) + 
+  annotate("text", x = 0.3, y = -0.17, label = expression(x[0]-epsilon),size=8) + 
+  annotate("segment", x = 0.3, xend = 0.42, y = -0.16, yend = -0.12, colour = col3[2], size=1.5, arrow=arrow())+
+  annotate("text", x = 0.7, y = -0.17, label = expression(x[0]+epsilon),size=8) + 
+  annotate("segment", x = 0.7, xend = 0.58, y = -0.16, yend = -0.125, colour = col3[3], size=1.5, arrow=arrow())+
+  theme_classic() + 
+  theme(text = element_text(size = 20)) +
+  labs(subtitle = "(b)") -> p2
+p2 + theme(axis.title = element_text(size=25),
+     axis.text = element_text(size=20))
+
+p2 + theme(axis.title = element_text(size=25),
+     axis.text = element_text(size=20)) -> p2
+
+```
+
+Calculate deterministic trajectories of curves starting at each of those three initial conditions. 
+```{r}
+model <- nimbleModel(may,constants = p, inits = list(x0 = 0.5))
+cmodel <- model #compileNimble(model)
+simulate(cmodel)
+df.1 <- tibble(t = p$t.step*seq_along(cmodel$x), x.1 = cmodel$x)
+
+model <- nimbleModel(may,constants = p, inits = list(x0 = 0.5-epsilon))
+cmodel <- model #compileNimble(model)
+simulate(cmodel)
+df.2 <- tibble(t = p$t.step*seq_along(cmodel$x), x.2 = cmodel$x)
+
+model <- nimbleModel(may,constants = p, inits = list(x0 = 0.5+epsilon))
+cmodel <- model #compileNimble(model)
+simulate(cmodel)
+df.3 <- tibble(t = p$t.step*seq_along(cmodel$x), x.3 = cmodel$x)
+
+allinits = merge(df.1, df.2, by="t")
+allinits = merge(allinits, df.3, by="t")
+#colnames(allinits) = c("t", "x_0", "x_0+epsilon", "x_0-epsilon")
+allinitsMelted <- reshape2::melt(allinits, id.var='t')
+colnames(allinitsMelted) = c("t","initial.condition", "value")
+```
+
+Plot the three trajectories. 
+
+```{r}
+ggplot(allinitsMelted, aes(t, value, col=initial.condition)) + 
+  geom_line(size=2) + 
+  scale_color_manual(name = "initial \ncondition", values = col3, labels = c(expression(x[0]), expression(x[0]-epsilon), expression(x[0]+epsilon))) +  ylab("x") + 
+  theme_classic()+ 
+  theme(text = element_text(size = 20)) +
+  labs(subtitle = "(c)") -> p3
+p3 + theme(legend.position = c(0.8,0.3)) + 
+  theme(axis.title = element_text(size=25),
+        axis.text = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=25),
+        legend.title.align = 0.5,
+        legend.text.align = 0)
+
+p3 + theme(legend.position = c(0.8,0.3)) + 
+  theme(axis.title = element_text(size=25),
+        axis.text = element_text(size=20),
+        legend.text = element_text(size=20),
+        legend.title = element_text(size=25),
+        legend.title.align = 0.5,
+        legend.text.align = 0) -> p3
+```
+
+Combine all three plots into one figure and save. 
+
+```{r}
+
+plot_grid(
+  p1,p2,p3,
+  ncol = 3)
+
+# save as png, eps, or pdf:
+
+ggsave(filename="3plots.png",width=24,height=(5/8)*8)
+
+setEPS()
+postscript("3plots.eps",width=24,height=(5/8)*8)
+plot_grid(
+  p1,p2,p3,
+  ncol = 3)
+dev.off()
+
+ggsave(filename="3plots.pdf",width=24,height=5)
+```
+
+Alternatively, can put the three plots into one column when plotting:
+
+```{r}
+plot_grid(
+  p1,p2,p3,
+  ncol = 1)
+
+ggsave(filename="3plots_tall.png",width=8,height=3*(5/8)*8)
+
+setEPS()
+postscript("3plots_tall.eps",width=8,height=3*(5/8)*8)
+plot_grid(
+  p1,p2,p3,
+  ncol = 1)
+dev.off()
+
+ggsave(filename="3plots_tall.pdf",width=8,height=15)
+```

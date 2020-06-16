@@ -1,0 +1,80 @@
+---
+title: "Long transient dynamics in the presence of noise - Figure 1"
+author: "Jody Reimer"
+date: "`r Sys.Date()`"
+output: 
+pdf_document: default
+---
+
+```{r library, message=F}
+library(tidyverse)
+library(nimble)
+library(ecp)
+library(ggplot2)
+```
+  
+Define parameters. 
+
+```{r}
+p <- list(r = .05, K = 2, Q = 5, H = .38, sigma = .02, a=0.023, N = 1000, t.step = 1/2) # define parameter list
+growth <- function(x, p) x * p$r * (1 - x / p$K) # growth terms in model
+consumption <- function(x,p) p$a * x ^ p$Q / (x^p$Q + p$H^p$Q) # consumption terms in model
+```
+
+Plot potential function for the ghost attractor model. 
+
+```{r}
+theory <- 
+  tibble(x= seq(0,2, length.out = 100)) %>%
+  mutate(g = growth(x,p), 
+         c = consumption(x,p)) %>%
+  mutate(potential = - cumsum(g - c)) %>%
+  gather(curve, y, -x, -potential) 
+theory %>%
+  ggplot(aes(x, potential)) + 
+  geom_line(lwd=1) + theme_classic()+ theme(text = element_text(size = 20)) +
+  labs(subtitle = "(b)")
+ggsave(filename="potential.png",width=5,height=(5/8)*5)
+ggsave(filename="potential.pdf",width=5,height=(5/8)*5)
+
+```
+
+Define the stochastic model in BUGS notation. 
+
+```{r, message=FALSE}
+# Define stochastic model in BUGS notation
+may  <- nimble::nimbleCode({
+  
+  x[1] <- x0
+  for(t in 1:((1/t.step)*N-1)){
+    # Determinstic mean looks like standard R
+    mu[t] <- x[t] + t.step*(x[t] * r * (1 - x[t] / K)  - a * x[t] ^ Q / (x[t] ^ Q + H ^ Q))
+    # Note the use of ~ in BUGS to show 'distributed as normal' 
+    y[t+1] ~ dnorm(mu[t], sd = sigma*mu[t]*sqrt(t.step)) # or should this be lognormal?
+    # note: since variance scales linearly with time, sd scales with the square root of time
+    x[t+1] <- max(y[t+1],0)
+  }
+})
+model <- nimbleModel(may,constants = p, inits = list(x0 = 0.3))
+cmodel <- model #compileNimble(model)
+```
+
+Simulate one time series from the stochastic model
+
+```{r}
+set.seed(270)
+simulate(cmodel)
+df <- tibble(t = p$t.step*seq_along(cmodel$x), x = cmodel$x)
+```
+
+Plot the time series. 
+
+```{r changepoint analysis}
+df %>% ggplot(aes(t, x)) + geom_line() + theme_classic() + 
+  theme(text = element_text(size = 20)) + 
+  labs(subtitle = "(a)")
+
+ggsave(filename="sim_data.png",width=5,height=(5/8)*5)
+ggsave(filename="sim_data.pdf",width=5,height=(5/8)*5)
+
+```
